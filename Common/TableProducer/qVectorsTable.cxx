@@ -113,14 +113,13 @@ struct qVectorsTable {
 
   TH3F* objQvec = nullptr;
 
-  std::map<string, bool> useDetector =  {
-    {"QvectorFT0Cs",false},
-    {"QvectorFT0Cs",false}, 
-    {"QvectorFT0Ms",false},
-    {"QvectorFV0As",false},
-    {"QvectorBPoss",false},
-    {"QvectorBNegs",false}
-  };
+  std::map<string, bool> useDetector = {
+    {"QvectorFT0Cs", false},
+    {"QvectorFT0Cs", false},
+    {"QvectorFT0Ms", false},
+    {"QvectorFV0As", false},
+    {"QvectorBPoss", false},
+    {"QvectorBNegs", false}};
 
   void init(InitContext& initContext)
   {
@@ -130,7 +129,7 @@ struct qVectorsTable {
     for (DeviceSpec const& device : workflows.devices) {
       for (auto const& input : device.inputs) {
         LOGF(info, Form("%s", input.matcher.binding.data()));
-        for (auto det: useDetector) {
+        for (auto det : useDetector) {
           if (input.matcher.binding == det.first) {
             useDetector[det.first.data()] = true;
             LOGF(info, Form("Using detector: %s.", det.first.data()));
@@ -292,7 +291,7 @@ struct qVectorsTable {
     /// First check if the collision has a found FT0. If yes, calculate the
     /// Q-vectors for FT0A and FT0C (both real and imaginary parts). If no,
     /// attribute dummy values to the corresponding qVect.
-    if (coll.has_foundFT0() && (useDetector["QvectorFT0As"] || useDetector["QvectorFT0Cs"] || useDetector["QvectorFT0Ms"]) ) {
+    if (coll.has_foundFT0() && (useDetector["QvectorFT0As"] || useDetector["QvectorFT0Cs"] || useDetector["QvectorFT0Ms"])) {
       auto ft0 = coll.foundFT0();
 
       // Check whether FT0-A is being used.
@@ -328,7 +327,6 @@ struct qVectorsTable {
         qVectFT0A[1] = -999.;
       }
 
-
       if (useDetector["QvectorFT0Cs"]) {
         // Repeat the procedure with FT0-C for the found FT0.
         // Start by resetting to zero the intermediate quantities.
@@ -358,8 +356,7 @@ struct qVectorsTable {
       } else {
         qVectFT0C[0] = -999.;
         qVectFT0C[1] = -999.;
-        }
-
+      }
 
       if (sumAmplFT0M > 1e-8 && useDetector["QvectorFT0Ms"]) {
         QvecFT0M /= sumAmplFT0M;
