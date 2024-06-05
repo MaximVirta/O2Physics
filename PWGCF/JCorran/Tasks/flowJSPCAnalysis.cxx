@@ -36,6 +36,8 @@
 #include "Common/Core/TrackSelection.h"
 #include "Common/DataModel/TrackSelectionTables.h"
 
+
+#include "PWGCF/DataModel/CorrelationsDerived.h"
 #include "PWGCF/JCorran/DataModel/JCatalyst.h"
 #include "PWGCF/JCorran/Core/FlowJSPCAnalysis.h"
 #include "PWGCF/JCorran/Core/FlowJSPCObservables.h"
@@ -191,8 +193,19 @@ struct flowJSPCAnalysis {
   {
     analyze(collision, tracks);
   }
-  PROCESS_SWITCH(flowJSPCAnalysis, processJDerivedCorrected, "Process derived data with corrections", true);
+  PROCESS_SWITCH(flowJSPCAnalysis, processJDerivedCorrected, "Process derived data with corrections", false);
 
+  void processCFDerived(aod::CFCollision const& collision, soa::Filtered<aod::CFTracks> const& tracks)
+  {
+    analyze(collision, tracks);
+  }
+  PROCESS_SWITCH(flowJSPCAnalysis, processCFDerived, "Process CF derived data", true);
+
+  void processCFDerivedCorrected(aod::CFCollision const& collision, soa::Filtered<soa::Join<aod::CFTracks, aod::JWeights>> const& tracks)
+  {
+    analyze(collision, tracks);
+  }
+  PROCESS_SWITCH(flowJSPCAnalysis, processCFDerivedCorrected, "Process CF derived data with corrections", false);
 };
 
 
