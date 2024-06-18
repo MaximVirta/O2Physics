@@ -68,7 +68,7 @@ struct flowJSPCAnalysis {
   // Set Configurables here
   Configurable<bool> cfgUseNUA{"cfgUseNUA", false, "Use NUA correction"};
   Configurable<bool> cfgUseNUE{"cfgUseNUE", false, "Use NUE correction"};
-  Configurable<bool> cfgFillQA{"cfgFillQA", true, "Fill QA plots"};
+  Configurable<bool> cfgFillQA{"cfgFillQA", false, "Fill QA plots"};
 
   Configurable<Int_t> cfgWhichSPC{"cfgWhichSPC", 0, "Which SPC observables to compute."};
 
@@ -106,6 +106,7 @@ struct flowJSPCAnalysis {
   // // and thus only the final distributions of the data for analysis are saved.
   Filter collFilter = (nabs(aod::collision::posZ) < cfgEventCuts.cfgZvtxMax);
   Filter trackFilter = (aod::track::pt > cfgTrackCuts.cfgPtMin) && (aod::track::pt < cfgTrackCuts.cfgPtMax) && (nabs(aod::track::eta) < cfgTrackCuts.cfgEtaMax);
+  Filter cftrackFilter = (aod::cftrack::pt > cfgTrackCuts.cfgPtMin) && (aod::cftrack::pt < cfgTrackCuts.cfgPtMax); // eta cuts done by jfluc
 
   void init(InitContext const&)
   {
@@ -179,7 +180,7 @@ struct flowJSPCAnalysis {
     spcAnalysis.SetQvectors(&jqvecs);
     spcAnalysis.CalculateCorrelators(cBin);
 
-    LOGF(info, "Collision analysed. Next...");
+    //LOGF(info, "Collision analysed. Next...");
   }
 
 
