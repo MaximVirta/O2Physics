@@ -11,51 +11,48 @@
 
 /// \author Junlee Kim (jikim1290@gmail.com)
 
-#include <cmath>
-#include <array>
-#include <cstdlib>
-#include <chrono>
-#include <string>
-#include <vector>
+#include "PWGLF/DataModel/LFStrangenessTables.h"
 
-#include "TLorentzVector.h"
-#include "TRandom3.h"
-#include "TF1.h"
-#include "TVector3.h"
-#include "Math/Vector3D.h"
-#include "Math/Vector4D.h"
-#include "Math/GenVector/Boost.h"
-#include <TMath.h>
-
-#include "Framework/runDataProcessing.h"
-#include "Framework/AnalysisTask.h"
-#include "Framework/AnalysisDataModel.h"
-#include "Framework/HistogramRegistry.h"
-#include "Framework/StepTHn.h"
-#include "Framework/O2DatabasePDGPlugin.h"
-#include "Framework/ASoAHelpers.h"
-#include "Framework/StaticFor.h"
-
-#include "Common/DataModel/PIDResponse.h"
-#include "Common/DataModel/Multiplicity.h"
-#include "Common/DataModel/Centrality.h"
-#include "Common/DataModel/TrackSelectionTables.h"
-#include "Common/DataModel/EventSelection.h"
-
-#include "Common/Core/trackUtilities.h"
 #include "Common/Core/TrackSelection.h"
+#include "Common/Core/trackUtilities.h"
+#include "Common/DataModel/Centrality.h"
+#include "Common/DataModel/EventSelection.h"
+#include "Common/DataModel/Multiplicity.h"
+#include "Common/DataModel/PIDResponse.h"
+#include "Common/DataModel/TrackSelectionTables.h"
+#include "EventFiltering/Zorro.h"
+#include "EventFiltering/ZorroSummary.h"
 
+#include "CCDB/BasicCCDBManager.h"
+#include "CCDB/CcdbApi.h"
 #include "CommonConstants/PhysicsConstants.h"
-
+#include "DataFormatsParameters/GRPMagField.h"
+#include "DataFormatsParameters/GRPObject.h"
+#include "Framework/ASoAHelpers.h"
+#include "Framework/AnalysisDataModel.h"
+#include "Framework/AnalysisTask.h"
+#include "Framework/HistogramRegistry.h"
+#include "Framework/O2DatabasePDGPlugin.h"
+#include "Framework/StaticFor.h"
+#include "Framework/StepTHn.h"
+#include "Framework/runDataProcessing.h"
 #include "ReconstructionDataFormats/Track.h"
 
-#include "DataFormatsParameters/GRPObject.h"
-#include "DataFormatsParameters/GRPMagField.h"
+#include "Math/GenVector/Boost.h"
+#include "Math/Vector3D.h"
+#include "Math/Vector4D.h"
+#include "TF1.h"
+#include "TLorentzVector.h"
+#include "TRandom3.h"
+#include "TVector3.h"
+#include <TMath.h>
 
-#include "CCDB/CcdbApi.h"
-#include "CCDB/BasicCCDBManager.h"
-
-#include "PWGLF/DataModel/LFStrangenessTables.h"
+#include <array>
+#include <chrono>
+#include <cmath>
+#include <cstdlib>
+#include <string>
+#include <vector>
 
 using namespace o2;
 using namespace o2::framework;
@@ -67,6 +64,9 @@ struct lambdalambda {
   using EventCandidates = soa::Join<aod::Collisions, aod::EvSels, aod::MultZeqs, aod::FT0Mults, aod::FV0Mults, aod::TPCMults, aod::CentFV0As, aod::CentFT0Ms, aod::CentFT0Cs, aod::CentFT0As, aod::Mults>;
   using TrackCandidates = soa::Join<aod::Tracks, aod::TracksExtra, aod::TracksDCA, aod::TrackSelection, aod::pidTPCFullPi, aod::pidTPCFullPr>;
   using V0TrackCandidate = aod::V0Datas;
+
+  Zorro zorro;
+  OutputObj<ZorroSummary> zorroSummary{"zorroSummary"};
 
   HistogramRegistry histos{
     "histos",
@@ -86,6 +86,7 @@ struct lambdalambda {
   Configurable<float> cfgCentSel{"cfgCentSel", 100., "Centrality selection"};
   Configurable<int> cfgCentEst{"cfgCentEst", 1, "Centrality estimator, 1: FT0C, 2: FT0M"};
 
+  Configurable<bool> cfgEvtSel{"cfgEvtSel", true, "event selection flag"};
   Configurable<bool> cfgPVSel{"cfgPVSel", false, "Additional PV selection flag for syst"};
   Configurable<float> cfgPV{"cfgPV", 8.0, "Additional PV selection range for syst"};
   Configurable<bool> cfgAddEvtSelPileup{"cfgAddEvtSelPileup", false, "flag for additional pileup selection"};
@@ -117,10 +118,16 @@ struct lambdalambda {
   Configurable<float> cfgV0V0RapMax{"cfgV0V0RapMax", 0.5, "rapidity selection for V0V0"};
 
   Configurable<bool> cfgV0V0Sel{"cfgV0V0Sel", false, "application of V0V0 selections"};
-  Configurable<float> cfgV0V0Radius{"cfgV0V0Radius", 1.0, "maximum radius of v0v0"};
-  Configurable<float> cfgV0V0CPA{"cfgV0V0CPA", 0.6, "minimum CPA of v0v0"};
-  Configurable<float> cfgV0V0Distance{"cfgV0V0Distance", 1, "minimum distance of v0v0"};
-  Configurable<float> cfgV0V0DCA{"cfgV0V0DCA", 1.0, "maximum DCA of v0v0"};
+
+  Configurable<float> cfgV0V0RadiusMin{"cfgV0V0RadiusMin", 1.0, "maximum radius of v0v0"};
+  Configurable<float> cfgV0V0CPAMin{"cfgV0V0CPAMin", 0.6, "minimum CPA of v0v0"};
+  Configurable<float> cfgV0V0DistanceMin{"cfgV0V0DistanceMin", 1, "minimum distance of v0v0"};
+  Configurable<float> cfgV0V0DCAMin{"cfgV0V0DCAMin", 1.0, "maximum DCA of v0v0 R"};
+
+  Configurable<float> cfgV0V0RadiusMax{"cfgV0V0RadiusMax", 1.0, "maximum radius of v0v0"};
+  Configurable<float> cfgV0V0CPAMax{"cfgV0V0CPAMax", 0.6, "maximum CPA of v0v0"};
+  Configurable<float> cfgV0V0DistanceMax{"cfgV0V0DistanceMax", 1, "maximum distance of v0v0"};
+  Configurable<float> cfgV0V0DCAMax{"cfgV0V0DCAMax", 1.0, "maximum DCA of v0v0 R"};
 
   Configurable<bool> cfgEffCor{"cfgEffCor", false, "flag to apply efficiency correction"};
   Configurable<std::string> cfgEffCorPath{"cfgEffCorPath", "", "path for pseudo efficiency correction"};
@@ -128,6 +135,9 @@ struct lambdalambda {
   Configurable<bool> cfgRotBkg{"cfgRotBkg", true, "flag to construct rotational backgrounds"};
   Configurable<int> cfgNRotBkg{"cfgNRotBkg", 10, "the number of rotational backgrounds"};
   Configurable<int> cfgNoMixedEvents{"cfgNoMixedEvents", 10, "Number of mixed events per event"};
+
+  Configurable<bool> cfgSkimmedProcessing{"cfgSkimmedProcessing", false, "Enable processing of skimmed data"};
+  Configurable<std::string> cfgTriggerName{"cfgTriggerName", "fLambdaLambda", "Software trigger name"};
 
   ConfigurableAxis massAxis{"massAxis", {110, 2.22, 2.33}, "Invariant mass axis"};
   ConfigurableAxis ptAxis{"ptAxis", {VARIABLE_WIDTH, 0.2, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.5, 8.0, 10.0, 100.0}, "Transverse momentum bins"};
@@ -137,7 +147,7 @@ struct lambdalambda {
   ConfigurableAxis RadiusAxis{"RadiusAxis", {100, 0, 5}, "radius of v0v0"};
   ConfigurableAxis CPAAxis{"CPAAxis", {102, -1.02, 1.02}, "CPA of v0v0"};
   ConfigurableAxis DistanceAxis{"DistanceAxis", {100, 0, 10}, "distance of v0v0"};
-  ConfigurableAxis DCAAxis{"DCAAxis", {100, 0, 5}, "DCA of v0v0"};
+  ConfigurableAxis DCAAxis{"DCAAxis", {100, 0, 2}, "DCA of v0v0R"};
 
   TF1* fMultPVCutLow = nullptr;
   TF1* fMultPVCutHigh = nullptr;
@@ -150,8 +160,20 @@ struct lambdalambda {
   bool IsTriggered;
   bool IsSelected;
 
+  void initCCDB(aod::BCsWithTimestamps::iterator const& bc)
+  {
+    if (cfgSkimmedProcessing) {
+      zorro.initCCDB(ccdb.service, bc.runNumber(), bc.timestamp(), cfgTriggerName.value);
+      zorro.populateHistRegistry(histos, bc.runNumber());
+    }
+  }
+
   void init(o2::framework::InitContext&)
   {
+    if (cfgSkimmedProcessing) {
+      zorroSummary.setObject(zorro.getZorroSummary());
+    }
+
     AxisSpec centQaAxis = {80, 0.0, 80.0};
     AxisSpec PVzQaAxis = {300, -15.0, 15.0};
     AxisSpec combAxis = {3, -0.5, 2.5};
@@ -284,13 +306,21 @@ struct lambdalambda {
   template <typename V01, typename V02>
   bool isSelectedV0V0(V01 const& v01, V02 const& v02)
   {
-    if (getDCAofV0V0(v01, v02) > cfgV0V0DCA)
+    if (getDCAofV0V0(v01, v02) > cfgV0V0DCAMax)
       return false;
-    if (getCPA(v01, v02) < cfgV0V0CPA)
+    if (getDCAofV0V0(v01, v02) < cfgV0V0DCAMin)
       return false;
-    if (getDistance(v01, v02) < cfgV0V0Distance)
+    if (getCPA(v01, v02) > cfgV0V0CPAMax)
       return false;
-    if (getRadius(v01, v02) > cfgV0V0Radius)
+    if (getCPA(v01, v02) < cfgV0V0CPAMin)
+      return false;
+    if (getDistance(v01, v02) > cfgV0V0DistanceMax)
+      return false;
+    if (getDistance(v01, v02) < cfgV0V0DistanceMin)
+      return false;
+    if (getRadius(v01, v02) > cfgV0V0RadiusMax)
+      return false;
+    if (getRadius(v01, v02) < cfgV0V0RadiusMin)
       return false;
 
     return true;
@@ -307,9 +337,8 @@ struct lambdalambda {
 
     ROOT::Math::XYZVector posdiff = v02pos - v01pos;
     ROOT::Math::XYZVector cross = v01mom.Cross(v02mom);
-    if (std::sqrt(cross.Mag2()) < 1e-6)
-      return 999.;
-    return std::abs(posdiff.Dot(cross)) / std::sqrt(cross.Mag2());
+    ROOT::Math::XYZVector dcaVec = (posdiff.Dot(cross) / cross.Mag2()) * cross;
+    return std::sqrt(dcaVec.Mag2());
   }
 
   template <typename V01, typename V02>
@@ -453,16 +482,13 @@ struct lambdalambda {
           histos.fill(HIST("h_InvMass_same"), RecoV0V0.M(), RecoV0V0.Pt(), centrality, V01Tag + V02Tag);
           if (cfgV0V0Sel && isSelectedV0V0(v01, v02)) {
             histos.fill(HIST("h_InvMass_same_sel"), RecoV0V0.M(), RecoV0V0.Pt(), centrality, V01Tag + V02Tag);
-          }
-          if (cfgRotBkg) {
-            for (int nr = 0; nr < cfgNRotBkg; nr++) {
-              auto RanPhi = rn->Uniform(o2::constants::math::PI * 5.0 / 6.0, o2::constants::math::PI * 7.0 / 6.0);
-              RanPhi += RecoV02.Phi();
-              RecoV02Rot = ROOT::Math::PxPyPzMVector(RecoV02.Pt() * std::cos(RanPhi), RecoV02.Pt() * std::sin(RanPhi), RecoV02.Pz(), RecoV02.M());
-              RecoV0V0Rot = RecoV01 + RecoV02Rot;
-              histos.fill(HIST("h_InvMass_rot"), RecoV0V0Rot.M(), RecoV0V0Rot.Pt(), centrality, V01Tag + V02Tag);
-              if (cfgV0V0Sel && isSelectedV0V0(v01, v02)) {
-                histos.fill(HIST("h_InvMass_rot_sel"), RecoV0V0Rot.M(), RecoV0V0Rot.Pt(), centrality, V01Tag + V02Tag);
+            if (cfgRotBkg) {
+              for (int nr = 0; nr < cfgNRotBkg; nr++) {
+                auto RanPhi = rn->Uniform(o2::constants::math::PI * 5.0 / 6.0, o2::constants::math::PI * 7.0 / 6.0);
+                RanPhi += RecoV02.Phi();
+                RecoV02Rot = ROOT::Math::PxPyPzMVector(RecoV02.Pt() * std::cos(RanPhi), RecoV02.Pt() * std::sin(RanPhi), RecoV02.Pz(), RecoV02.M());
+                RecoV0V0Rot = RecoV01 + RecoV02Rot;
+                histos.fill(HIST("h_InvMass_rot"), RecoV0V0Rot.M(), RecoV0V0Rot.Pt(), centrality, V01Tag + V02Tag);
               }
             }
           }
@@ -487,7 +513,7 @@ struct lambdalambda {
       centrality = collision.centFT0M();
     }
     histos.fill(HIST("hEventstat"), 0.5);
-    if (!eventSelected(collision)) {
+    if (!eventSelected(collision) && cfgEvtSel) {
       return;
     }
     histos.fill(HIST("hEventstat"), 1.5);
@@ -495,8 +521,15 @@ struct lambdalambda {
     histos.fill(HIST("QA/CentDist"), centrality, 1.0);
     histos.fill(HIST("QA/PVzDist"), collision.posZ(), 1.0);
 
+    auto bc = collision.bc_as<aod::BCsWithTimestamps>();
+    if (cfgSkimmedProcessing) {
+      initCCDB(bc);
+      if (!zorro.isSelected(collision.template bc_as<aod::BCsWithTimestamps>().globalBC())) {
+        return;
+      }
+    }
+
     if (cfgEffCor) {
-      auto bc = collision.bc_as<aod::BCsWithTimestamps>();
       EffMap = ccdb->getForTimeStamp<TProfile2D>(cfgEffCorPath.value, bc.timestamp());
     }
     FillHistograms(collision, collision, V0s, V0s);
@@ -509,31 +542,46 @@ struct lambdalambda {
   PROCESS_SWITCH(lambdalambda, processDataSame, "Process Event for same data", true);
 
   SliceCache cache;
-  using BinningTypeVertexContributor = ColumnBinningPolicy<aod::collision::PosZ, aod::cent::CentFT0M>;
+  using BinningType = ColumnBinningPolicy<aod::collision::PosZ, aod::cent::CentFT0M>;
+  BinningType colBinning{{vertexAxis, centAxis}, true};
 
+  Preslice<aod::V0Datas> tracksPerCollisionV0 = aod::v0data::collisionId;
   void processDataMixed(EventCandidates const& collisions,
-                        TrackCandidates const& /*tracks*/, aod::V0Datas const& V0s)
+                        TrackCandidates const& /*tracks*/, aod::V0Datas const& V0s, aod::BCsWithTimestamps const&)
   {
-    auto tracksTuple = std::make_tuple(V0s);
-    BinningTypeVertexContributor binningOnPositions{{vertexAxis, centAxis}, true};
-    SameKindPair<EventCandidates, V0TrackCandidate, BinningTypeVertexContributor> pair{binningOnPositions, cfgNoMixedEvents, -1, collisions, tracksTuple, &cache};
-    for (auto& [c1, tracks1, c2, tracks2] : pair) {
-      if (cfgCentEst == 1) {
-        centrality = c1.centFT0C();
-      } else if (cfgCentEst == 2) {
-        centrality = c1.centFT0M();
+    int currentRun = -1;
+    for (auto& [c1, c2] : selfCombinations(colBinning, cfgNoMixedEvents, -1, collisions, collisions)) {
+      if (c1.index() == c2.index())
+        continue;
+
+      auto bc1 = c1.bc_as<aod::BCsWithTimestamps>();
+      auto bc2 = c2.bc_as<aod::BCsWithTimestamps>();
+
+      if (bc1.runNumber() != bc2.runNumber())
+        continue;
+
+      if (bc1.runNumber() != currentRun) {
+        if (cfgSkimmedProcessing) {
+          initCCDB(bc1);
+          if (!zorro.isSelected(bc1.globalBC()) || !zorro.isSelected(bc2.globalBC())) {
+            continue;
+          }
+        }
       }
+
+      centrality = c1.centFT0M();
       if (!eventSelected(c1))
         continue;
       if (!eventSelected(c2))
         continue;
-      if (c1.bcId() == c2.bcId())
-        continue;
+
+      auto tracks1 = V0s.sliceBy(tracksPerCollisionV0, c1.globalIndex());
+      auto tracks2 = V0s.sliceBy(tracksPerCollisionV0, c2.globalIndex());
 
       FillHistograms(c1, c2, tracks1, tracks2);
     }
   }
-  PROCESS_SWITCH(lambdalambda, processDataMixed, "Process Event for mixed data", true);
+  PROCESS_SWITCH(lambdalambda, processDataMixed, "Process Event for mixed data", false);
 };
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)

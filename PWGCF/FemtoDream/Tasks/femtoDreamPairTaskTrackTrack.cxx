@@ -1,4 +1,4 @@
-// Copyright 2019-2022 CERN and copyright holders of ALICE O2.
+// Copyright 2019-2025 CERN and copyright holders of ALICE O2.
 // See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
 // All rights not expressly granted are reserved.
 //
@@ -76,9 +76,10 @@ struct femtoDreamPairTaskTrackTrack {
     Configurable<int> MultMax{"MultMax", 99999, "Maximum Multiplicity (MultNtr)"};
     Configurable<float> MultPercentileMin{"MultPercentileMin", 0, "Maximum Multiplicity Percentile"};
     Configurable<float> MultPercentileMax{"MultPercentileMax", 100, "Minimum Multiplicity Percentile"};
+    Configurable<float> SphericityMin{"SphericityMin", 0, "Minimum event sphericity"};
   } EventSel;
 
-  Filter EventMultiplicity = aod::femtodreamcollision::multNtr >= EventSel.MultMin && aod::femtodreamcollision::multNtr <= EventSel.MultMax;
+  Filter EventMultiplicity = aod::femtodreamcollision::multNtr >= EventSel.MultMin && aod::femtodreamcollision::multNtr <= EventSel.MultMax && aod::femtodreamcollision::sphericity >= EventSel.SphericityMin;
   Filter EventMultiplicityPercentile = aod::femtodreamcollision::multV0M >= EventSel.MultPercentileMin && aod::femtodreamcollision::multV0M <= EventSel.MultPercentileMax;
 
   using FilteredCollisions = soa::Filtered<FDCollisions>;
@@ -242,9 +243,9 @@ struct femtoDreamPairTaskTrackTrack {
       random = new TRandom3(0);
     }
     eventHisto.init(&Registry, Option.IsMC);
-    trackHistoPartOne.init(&Registry, Binning.multTempFit, Option.Dummy, Binning.TrackpT, Option.Dummy, Option.Dummy, Binning.TempFitVar, Option.Dummy, Option.Dummy, Option.Dummy, Option.Dummy, Option.Dummy, Option.IsMC, Track1.PDGCode);
+    trackHistoPartOne.init(&Registry, Binning.multTempFit, Option.Dummy, Binning.TrackpT, Option.Dummy, Option.Dummy, Binning.TempFitVar, Option.Dummy, Option.Dummy, Option.Dummy, Option.Dummy, Option.Dummy, Option.Dummy, Option.IsMC, Track1.PDGCode);
     if (!Option.SameSpecies) {
-      trackHistoPartTwo.init(&Registry, Binning.multTempFit, Option.Dummy, Binning.TrackpT, Option.Dummy, Option.Dummy, Binning.TempFitVar, Option.Dummy, Option.Dummy, Option.Dummy, Option.Dummy, Option.Dummy, Option.IsMC, Track2.PDGCode);
+      trackHistoPartTwo.init(&Registry, Binning.multTempFit, Option.Dummy, Binning.TrackpT, Option.Dummy, Option.Dummy, Binning.TempFitVar, Option.Dummy, Option.Dummy, Option.Dummy, Option.Dummy, Option.Dummy, Option.Dummy, Option.IsMC, Track2.PDGCode);
     }
 
     sameEventCont.init(&Registry,

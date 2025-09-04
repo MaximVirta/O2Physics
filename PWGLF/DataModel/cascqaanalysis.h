@@ -100,6 +100,8 @@ DECLARE_SOA_COLUMN(IsPrimary, isPrimary, int);                       //! -1 unkn
 DECLARE_SOA_COLUMN(BachBaryonCosPA, bachBaryonCosPA, float);         //! avoid bach-baryon correlated inv mass structure in analysis
 DECLARE_SOA_COLUMN(BachBaryonDCAxyToPV, bachBaryonDCAxyToPV, float); //! avoid bach-baryon correlated inv mass structure in analysis
 DECLARE_SOA_COLUMN(EventSelFilterBitMask, eventSelFilterBitMask, uint8_t);
+DECLARE_SOA_COLUMN(GenPt, genPt, float);
+DECLARE_SOA_COLUMN(GenY, genY, float);
 
 DECLARE_SOA_DYNAMIC_COLUMN(IsINEL, isINEL, //! True if the Event belongs to the INEL event class
                            [](uint8_t flags) -> bool { return (flags & EvFlags::EvINEL) == EvFlags::EvINEL; });
@@ -136,7 +138,14 @@ DECLARE_SOA_COLUMN(BDTResponseOmega, bdtResponseOmega, float);
 DECLARE_SOA_COLUMN(CosThetaStarLambdaFromOmega, cosThetaStarLambdaFromOmega, float);
 DECLARE_SOA_COLUMN(CosThetaStarLambdaFromXi, cosThetaStarLambdaFromXi, float);
 DECLARE_SOA_COLUMN(CosThetaStarProton, cosThetaStarProton, float);
-
+DECLARE_SOA_COLUMN(V0Radius, v0Radius, float);
+DECLARE_SOA_COLUMN(DcaPosToPV, dcaPosToPV, float);
+DECLARE_SOA_COLUMN(DcaNegToPV, dcaNegToPV, float);
+DECLARE_SOA_COLUMN(V0CosPA, v0CosPA, double);
+DECLARE_SOA_COLUMN(DcaV0Daughters, dcaV0Daughters, float);
+DECLARE_SOA_COLUMN(Pzs2Lambda, pzs2Lambda, double);
+DECLARE_SOA_COLUMN(Cos2ThetaLambda, cos2ThetaLambda, double);
+DECLARE_SOA_COLUMN(CosThetaLambda, cosThetaLambda, double);
 } // namespace cascadesflow
 
 DECLARE_SOA_TABLE(MyCascades, "AOD", "MYCASCADES", o2::soa::Index<>,
@@ -158,6 +167,8 @@ DECLARE_SOA_TABLE(MyCascades, "AOD", "MYCASCADES", o2::soa::Index<>,
                   mycascades::McPdgCode, mycascades::IsPrimary,
                   mycascades::BachBaryonCosPA, mycascades::BachBaryonDCAxyToPV,
                   mycascades::EventSelFilterBitMask,
+                  mycascades::GenPt,
+                  mycascades::GenY,
                   mycascades::IsINEL<mycascades::EventSelFilterBitMask>,
                   mycascades::IsINELgt0<mycascades::EventSelFilterBitMask>,
                   mycascades::IsINELgt1<mycascades::EventSelFilterBitMask>);
@@ -168,6 +179,9 @@ DECLARE_SOA_TABLE(CascTraining, "AOD", "CascTraining", o2::soa::Index<>,
 
 DECLARE_SOA_TABLE(CascAnalysis, "AOD", "CascAnalysis", o2::soa::Index<>,
                   cascadesflow::CentFT0C, cascadesflow::IsNoCollInTimeRange, cascadesflow::IsNoCollInRof, cascadesflow::HasEventPlane, cascadesflow::HasSpectatorPlane, cascadesflow::Sign, cascadesflow::Pt, cascadesflow::Eta, cascadesflow::Phi, cascadesflow::MassLambda, cascadesflow::MassXi, cascadesflow::MassOmega, cascadesflow::V2CSP, cascadesflow::V2CEP, cascadesflow::V1SPzdcA, cascadesflow::V1SPzdcC, cascadesflow::PsiT0C, cascadesflow::BDTResponseXi, cascadesflow::BDTResponseOmega, cascadesflow::CosThetaStarLambdaFromOmega, cascadesflow::CosThetaStarLambdaFromXi, cascadesflow::CosThetaStarProton, mycascades::McPdgCode);
+
+DECLARE_SOA_TABLE(LambdaAnalysis, "AOD", "LambdaAnalysis", o2::soa::Index<>,
+                  cascadesflow::CentFT0C, cascadesflow::HasEventPlane, cascadesflow::HasSpectatorPlane, cascadesflow::Sign, cascadesflow::Pt, cascadesflow::Phi, cascadesflow::MassLambda, cascadesflow::V0Radius, cascadesflow::DcaPosToPV, cascadesflow::DcaNegToPV, cascadesflow::V0CosPA, cascadesflow::DcaV0Daughters, cascadesflow::V2CEP, cascadesflow::PsiT0C, cascadesflow::Pzs2Lambda, cascadesflow::Cos2ThetaLambda, cascadesflow::CosThetaLambda);
 
 namespace myMCcascades
 {

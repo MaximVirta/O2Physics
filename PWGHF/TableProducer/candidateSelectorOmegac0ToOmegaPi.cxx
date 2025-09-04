@@ -9,39 +9,57 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file candidateSelectorToOmegaPi.cxx
+/// \file candidateSelectorOmegac0ToOmegaPi.cxx
 /// \brief Omegac0 → Omega Pi selection task
 /// \author Federica Zanone <federica.zanone@cern.ch>, Heidelberg University
 /// \author Ruiqi Yin <ruiqi.yin@cern.ch>, Fudan University
 /// \author Yunfan Liu <yunfan.liu@cern.ch>, China University of Geosciences
+/// \author Fabio Catalano <fabio.catalano@cern.ch>, University of Houston
 
-#include <string>
-#include <vector>
-
-#include "CommonConstants/PhysicsConstants.h"
-#include "Framework/AnalysisTask.h"
-#include "Framework/runDataProcessing.h"
-
-#include "Common/Core/TrackSelection.h"
-#include "Common/Core/TrackSelectorPID.h"
-
-#include "PWGHF/Core/HfMlResponse.h"
 #include "PWGHF/Core/HfMlResponseOmegacToOmegaPi.h"
-
+#include "PWGHF/Core/SelectorCuts.h"
 #include "PWGHF/DataModel/CandidateReconstructionTables.h"
 #include "PWGHF/DataModel/CandidateSelectionTables.h"
 #include "PWGHF/Utils/utilsAnalysis.h"
+
+#include "Common/Core/RecoDecay.h"
+#include "Common/Core/TrackSelectorPID.h"
+
+#include <CCDB/CcdbApi.h>
+#include <CommonConstants/PhysicsConstants.h>
+#include <Framework/ASoA.h>
+#include <Framework/AnalysisDataModel.h>
+#include <Framework/AnalysisHelpers.h>
+#include <Framework/AnalysisTask.h>
+#include <Framework/Array2D.h>
+#include <Framework/Configurable.h>
+#include <Framework/HistogramRegistry.h>
+#include <Framework/HistogramSpec.h>
+#include <Framework/InitContext.h>
+#include <Framework/Logger.h>
+#include <Framework/runDataProcessing.h>
+
+#include <TH1.h>
+
+#include <Rtypes.h>
+
+#include <array>
+#include <cstdint>
+#include <cstdlib>
+#include <numeric>
+#include <string>
+#include <vector>
 
 using namespace o2;
 using namespace o2::aod;
 using namespace o2::framework;
 using namespace o2::analysis;
 
-enum pidInfoStored {
-  kPiFromLam = 0,
-  kPrFromLam,
-  kKaFromCasc,
-  kPiFromCharm
+enum PidInfoStored {
+  PiFromLam = 0,
+  PrFromLam,
+  KaFromCasc,
+  PiFromCharm
 };
 
 /// Struct for applying Omegac0 -> Omega pi selection cuts
@@ -157,14 +175,14 @@ struct HfCandidateSelectorToOmegaPi {
   } KfconfigurableGroup;
   // topological cuts
   Configurable<std::vector<double>> binsPt{"binsPt", std::vector<double>{hf_cuts_omegac_to_omega_pi::vecBinsPt}, "pT bin limits"};
-  Configurable<LabeledArray<double>> cuts{"cuts", {hf_cuts_omegac_to_omega_pi::cuts[0], hf_cuts_omegac_to_omega_pi::nBinsPt, hf_cuts_omegac_to_omega_pi::nCutVars, hf_cuts_omegac_to_omega_pi::labelsPt, hf_cuts_omegac_to_omega_pi::labelsCutVar}, "OmegaC0 candidate selection per pT bin"};
+  Configurable<LabeledArray<double>> cuts{"cuts", {hf_cuts_omegac_to_omega_pi::Cuts[0], hf_cuts_omegac_to_omega_pi::NBinsPt, hf_cuts_omegac_to_omega_pi::NCutVars, hf_cuts_omegac_to_omega_pi::labelsPt, hf_cuts_omegac_to_omega_pi::labelsCutVar}, "OmegaC0 candidate selection per pT bin"};
   // ML inference
   Configurable<bool> applyMl{"applyMl", false, "Flag to apply ML selections"};
   Configurable<std::vector<double>> binsPtMl{"binsPtMl", std::vector<double>{hf_cuts_ml::vecBinsPt}, "pT bin limits for ML application"};
   Configurable<std::vector<int>> cutDirMl{"cutDirMl", std::vector<int>{hf_cuts_ml::vecCutDir}, "Whether to reject score values greater or smaller than the threshold"};
-  Configurable<LabeledArray<double>> cutsMl{"cutsMl", {hf_cuts_ml::cuts[0], hf_cuts_ml::nBinsPt, hf_cuts_ml::nCutScores, hf_cuts_ml::labelsPt, hf_cuts_ml::labelsCutScore}, "ML selections per pT bin"};
-  Configurable<int8_t> nClassesMl{"nClassesMl", (int8_t)hf_cuts_ml::nCutScores, "Number of classes in ML model"};
-  Configurable<std::vector<std::string>> namesInputFeatures{"namesInputFeaturesW", std::vector<std::string>{"feature1", "feature2"}, "Names of ML model input features"};
+  Configurable<LabeledArray<double>> cutsMl{"cutsMl", {hf_cuts_ml::Cuts[0], hf_cuts_ml::NBinsPt, hf_cuts_ml::NCutScores, hf_cuts_ml::labelsPt, hf_cuts_ml::labelsCutScore}, "ML selections per pT bin"};
+  Configurable<int> nClassesMl{"nClassesMl", static_cast<int>(hf_cuts_ml::NCutScores), "Number of classes in ML model"};
+  Configurable<std::vector<std::string>> namesInputFeatures{"namesInputFeatures", std::vector<std::string>{"feature1", "feature2"}, "Names of ML model input features"};
   // CCDB configuration
   Configurable<std::string> ccdbUrl{"ccdbUrl", "http://alice-ccdb.cern.ch", "url of the ccdb repository"};
   Configurable<std::vector<std::string>> modelPathsCCDB{"modelPathsCCDB", std::vector<std::string>{"EventFiltering/PWGHF/BDTOmegac0"}, "Paths of models on CCDB"};
@@ -223,7 +241,6 @@ struct HfCandidateSelectorToOmegaPi {
     registry.add("hStatusCheck", "Check consecutive selections status;status;entries", {HistType::kTH1D, {{12, 0., 12.}}});
 
     // for QA of the selections (bin 0 -> candidates that did not pass the selection, bin 1 -> candidates that passed the selection)
-    registry.add("hSelPtOmegac", "hSelPtOmegac;status;entries", {HistType::kTH1D, {axisSel}});
     registry.add("hSelSignDec", "hSelSignDec;status;entries", {HistType::kTH1D, {axisSel}});
     registry.add("hSelEtaPosV0Dau", "hSelEtaPosV0Dau;status;entries", {HistType::kTH1D, {axisSel}});
     registry.add("hSelEtaNegV0Dau", "hSelEtaNegV0Dau;status;entries", {HistType::kTH1D, {axisSel}});
@@ -254,6 +271,7 @@ struct HfCandidateSelectorToOmegaPi {
     registry.add("hSelDcaXYToPvKaFromCasc", "hSelDcaXYToPvKaFromCasc;status;entries", {HistType::kTH1D, {axisSel}});
 
     if (KfconfigurableGroup.applyKFpreselections) {
+      registry.add("hSelPtOmegac", "hSelPtOmegac;status;entries", {HistType::kTH1D, {axisSel}});
       registry.add("hSelCompetingCasc", "hSelCompetingCasc;status;entries", {HistType::kTH1D, {axisSel}});
       registry.add("hSelKFstatus", "hSelKFstatus;status;entries", {HistType::kTH1D, {axisSel}});
       registry.add("hSelV0_Casc_Omegacldl", "hSelV0_Casc_Omegacldl;status;entries", {HistType::kTH1D, {axisSel}});
@@ -340,7 +358,6 @@ struct HfCandidateSelectorToOmegaPi {
       auto trackPrFromLam = trackV0PosDau;
 
       auto ptCand = candidate.ptCharmBaryon();
-
       int8_t signDecay = candidate.signDecay(); // sign of pi <- cascade
 
       if (signDecay > 0) {
@@ -507,7 +524,6 @@ struct HfCandidateSelectorToOmegaPi {
       }
 
       if constexpr (ConstructMethod == hf_cand_casc_lf::ConstructMethod::KfParticle) {
-        ;
         // KFParticle Preselections(kfsel)
         if (KfconfigurableGroup.applyKFpreselections) {
 
@@ -529,7 +545,6 @@ struct HfCandidateSelectorToOmegaPi {
           }
 
           // Omegac Pt selection
-          hPtCharmBaryon->Fill(std::abs(candidate.kfptOmegac()));
           if (std::abs(candidate.kfptOmegac()) < ptCandMin || std::abs(candidate.kfptOmegac()) > ptCandMax) {
             resultSelections = false;
             registry.fill(HIST("hSelPtOmegac"), 0);
@@ -546,7 +561,7 @@ struct HfCandidateSelectorToOmegaPi {
           }
 
           // Omegac ctau selsection
-          if (candidate.ctauOmegac() > KfconfigurableGroup.cTauOmegacMax) {
+          if (candidate.cTauOmegac() > KfconfigurableGroup.cTauOmegacMax) {
             resultSelections = false;
             registry.fill(HIST("hSelctauOmegac"), 0);
           } else {
@@ -554,7 +569,7 @@ struct HfCandidateSelectorToOmegaPi {
           }
 
           // Chi2Geo/NDF V0&Casc&Omegac selection
-          if ((candidate.v0Chi2OverNdf() > KfconfigurableGroup.v0Chi2OverNdfMax) || (candidate.cascChi2OverNdf() > KfconfigurableGroup.cascChi2OverNdfMax) || (candidate.omegacChi2OverNdf() > KfconfigurableGroup.omegacChi2OverNdfMax)) {
+          if ((candidate.v0Chi2OverNdf() > KfconfigurableGroup.v0Chi2OverNdfMax) || (candidate.v0Chi2OverNdf() < 0) || (candidate.cascChi2OverNdf() > KfconfigurableGroup.cascChi2OverNdfMax) || (candidate.cascChi2OverNdf() < 0) || (candidate.omegacChi2OverNdf() > KfconfigurableGroup.omegacChi2OverNdfMax) || (candidate.omegacChi2OverNdf() < 0)) {
             resultSelections = false;
             registry.fill(HIST("hSelChi2GeooverNDFV0_Casc_Omegac"), 0);
           } else {
@@ -562,7 +577,7 @@ struct HfCandidateSelectorToOmegaPi {
           }
 
           // Chi2Topo/NDF (chi2TopoV0ToCasc chi2TopoOmegacToPv chi2TopoCascToOmegac chi2TopoCascToPv) selection  (???????????/NDF of which particle????????)
-          if ((candidate.chi2TopoV0ToCasc() > KfconfigurableGroup.chi2TopoV0ToCascMax) || (candidate.chi2TopoOmegacToPv() > KfconfigurableGroup.chi2TopoOmegacToPvMax) || (candidate.chi2TopoCascToOmegac() > KfconfigurableGroup.chi2TopoCascToOmegacMax) || (candidate.chi2TopoCascToPv() > KfconfigurableGroup.chi2TopoCascToPvMax)) {
+          if ((candidate.chi2TopoV0ToCasc() > KfconfigurableGroup.chi2TopoV0ToCascMax) || (candidate.chi2TopoV0ToCasc() < 0) || (candidate.chi2TopoOmegacToPv() > KfconfigurableGroup.chi2TopoOmegacToPvMax) || (candidate.chi2TopoOmegacToPv() < 0) || (candidate.chi2TopoCascToOmegac() > KfconfigurableGroup.chi2TopoCascToOmegacMax) || (candidate.chi2TopoCascToOmegac() < 0) || (candidate.chi2TopoCascToPv() > KfconfigurableGroup.chi2TopoCascToPvMax) || (candidate.chi2TopoCascToPv() < 0)) {
             resultSelections = false;
             registry.fill(HIST("hSelChi2TopooverNDFV0_Casc_Omegac"), 0);
           } else {
@@ -640,28 +655,28 @@ struct HfCandidateSelectorToOmegaPi {
       }
 
       if (trackPiFromLam.hasTPC()) {
-        SETBIT(infoTpcStored, kPiFromLam);
+        SETBIT(infoTpcStored, PiFromLam);
       }
       if (trackPrFromLam.hasTPC()) {
-        SETBIT(infoTpcStored, kPrFromLam);
+        SETBIT(infoTpcStored, PrFromLam);
       }
       if (trackKaFromCasc.hasTPC()) {
-        SETBIT(infoTpcStored, kKaFromCasc);
+        SETBIT(infoTpcStored, KaFromCasc);
       }
       if (trackPiFromCharm.hasTPC()) {
-        SETBIT(infoTpcStored, kPiFromCharm);
+        SETBIT(infoTpcStored, PiFromCharm);
       }
       if (trackPiFromLam.hasTOF()) {
-        SETBIT(infoTofStored, kPiFromLam);
+        SETBIT(infoTofStored, PiFromLam);
       }
       if (trackPrFromLam.hasTOF()) {
-        SETBIT(infoTofStored, kPrFromLam);
+        SETBIT(infoTofStored, PrFromLam);
       }
       if (trackKaFromCasc.hasTOF()) {
-        SETBIT(infoTofStored, kKaFromCasc);
+        SETBIT(infoTofStored, KaFromCasc);
       }
       if (trackPiFromCharm.hasTOF()) {
-        SETBIT(infoTofStored, kPiFromCharm);
+        SETBIT(infoTofStored, PiFromCharm);
       }
 
       if (usePidTpcOnly) {
@@ -798,6 +813,11 @@ struct HfCandidateSelectorToOmegaPi {
 
       if (statusPidLambda && statusPidCascade && statusPidCharmBaryon && statusInvMassLambda && statusInvMassCascade && statusInvMassCharmBaryon && resultSelections) {
         hInvMassCharmBaryon->Fill(invMassCharmBaryon);
+        if constexpr (ConstructMethod == hf_cand_casc_lf::ConstructMethod::KfParticle) {
+          hPtCharmBaryon->Fill(candidate.kfptOmegac());
+        } else {
+          hPtCharmBaryon->Fill(ptCand);
+        }
       }
     }
   } // end process

@@ -1,4 +1,4 @@
-# Copyright 2019-2024 CERN and copyright holders of ALICE O2.
+# Copyright 2019-2025 CERN and copyright holders of ALICE O2.
 # See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
 # All rights not expressly granted are reserved.
 #
@@ -56,5 +56,10 @@ o2physics_add_dpl_workflow(femtodream-collision-masker
 
 o2physics_add_dpl_workflow(femtodream-hash
           SOURCES femtoDreamHashTask.cxx
+          PUBLIC_LINK_LIBRARIES O2::Framework O2Physics::AnalysisCore
+          COMPONENT_NAME Analysis)
+
+o2physics_add_dpl_workflow(femtodream-pair-v0-v0
+          SOURCES femtoDreamPairTaskV0V0.cxx
           PUBLIC_LINK_LIBRARIES O2::Framework O2Physics::AnalysisCore
           COMPONENT_NAME Analysis)

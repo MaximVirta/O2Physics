@@ -193,12 +193,6 @@ void V0PhotonCut::SetMeanClusterSizeITSob(float min, float max)
   LOG(info) << "V0 Photon Cut, set mean cluster size ITS range: " << mMinMeanClusterSizeITS << " - " << mMaxMeanClusterSizeITS;
 }
 
-void V0PhotonCut::SetIsWithinBeamPipe(bool flag)
-{
-  mIsWithinBP = flag;
-  LOG(info) << "V0 Photon Cut, propagated to within beam pipe: " << mIsWithinBP;
-}
-
 void V0PhotonCut::SetRequireITSTPC(bool flag)
 {
   mRequireITSTPC = flag;
@@ -229,14 +223,14 @@ void V0PhotonCut::SetRequireTPCTOF(bool flag)
   LOG(info) << "V0 Photon Cut, require TPC-TOF track: " << mRequireTPCTOF;
 }
 
-void V0PhotonCut::SetRequireTPCTRDTOF(bool flag)
-{
-  mRequireTPCTRDTOF = flag;
-  LOG(info) << "V0 Photon Cut, require TPC-TOF track: " << mRequireTPCTRDTOF;
-}
-
 void V0PhotonCut::SetDisableITSonly(bool flag)
 {
   mDisableITSonly = flag;
   LOG(info) << "V0 Photon Cut, disable ITS only track: " << mDisableITSonly;
+}
+
+void V0PhotonCut::SetDisableTPConly(bool flag)
+{
+  mDisableTPConly = flag;
+  LOG(info) << "V0 Photon Cut, disable TPC only track: " << mDisableTPConly;
 }
